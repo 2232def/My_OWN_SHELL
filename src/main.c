@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 int main(int argc, char *argv[])
 {
@@ -18,9 +19,33 @@ int main(int argc, char *argv[])
         {
             break;
         }
-        else if (strncmp(command, "echo ", 5) == 0)
+        else if (strncmp(command, "echo", 4) == 0)
         {
-            printf("%s\n", command + 5);
+            char *args = command + 4;
+            while (*args != '\0' && isspace((unsigned char)*args))
+            {
+                args++;
+            }
+
+            int in_space = 0;
+            while (*args != '\0')
+            {
+                if (isspace((unsigned char)*args))
+                {
+                    in_space = 1;
+                }
+                else
+                {
+                    if (in_space)
+                    {
+                        putchar(' ');
+                        in_space = 0;
+                    }
+                    putchar(*args);
+                }
+                args++;
+            }
+            putchar('\n');
         }
         else
         {
