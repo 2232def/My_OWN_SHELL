@@ -18,7 +18,14 @@ int main(int argc, char *argv[])
         {
             break;
         }
-        printf("%s: command not found\n", command);
+        else if (strncmp(command, "echo ", 5) == 0)
+        {
+            printf("%s\n", command + 5);
+        }
+        else
+        {
+            printf("%s: command not found\n", command);
+        }
     }
 
     return 0;
