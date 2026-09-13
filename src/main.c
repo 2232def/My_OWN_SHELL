@@ -2,6 +2,56 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
+
+int handle_type(char *args)
+{
+    if (args[1] == NULL) {
+        return 0;
+    }
+    char *cmd = args[1];
+    char *builtins[] = {"cd", "exit", "type"};
+    int num_builtins = 3;
+
+    // check builtins first
+    for (int i = 0; i < num_builtins; i++)
+    {
+        if (strcmp(cmd, builtins[i]) == 0)
+        {
+            printf("%s is a shell builtin\n", cmd);
+            return;
+        }
+    }
+
+    // not a builtin — search PATH
+    char *path_env = getenv("PATH");
+    if (path_env == NULL)
+    {
+        printf("%s: not found\n", cmd);
+        return;
+    }
+
+    char *path_copy = strdup(path_env);
+    char *dir = strtok(path_copy, ":");
+
+    while (dir != NULL)
+    {
+        char full_path[1024];
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir, cmd);
+
+        if (access(full_path, X_OK) == 0)
+        {
+            printf("%s is %s\n", cmd, full_path);
+            free(path_copy);
+            return;
+        }
+
+        dir = strtok(NULL, ":");
+    }
+
+    printf("%s: not found\n", cmd);
+    free(path_copy);
+}
 
 int main(int argc, char *argv[])
 {
@@ -46,6 +96,10 @@ int main(int argc, char *argv[])
                 args++;
             }
             putchar('\n');
+        }
+        else if (strncmp(command, "type", 4) == 0)
+        {
+            handle_type(argv);
         }
         else
         {
