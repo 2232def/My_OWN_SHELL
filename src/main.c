@@ -4,15 +4,18 @@
 #include <ctype.h>
 #include <unistd.h>
 
-int handle_type(char *args)
+int handle_type(char *args[])
 {
     if (args[1] == NULL) {
         return 0;
     }
     char *cmd = args[1];
-    char *builtins[] = {"cd", "exit", "type"};
-    int num_builtins = 3;
+    char *builtins[] = {"cd", "exit", "echo", "type"};
+    
+    int a = ((char*)(&builtins + 1) - (char*)(&builtins)); 
+    int b = (char*)(builtins + 1) - (char*)builtins;
 
+    int num_builtins = a/b;
     // check builtins first
     for (int i = 0; i < num_builtins; i++)
     {
@@ -99,7 +102,17 @@ int main(int argc, char *argv[])
         }
         else if (strncmp(command, "type", 4) == 0)
         {
-            handle_type(argv);
+            char *args[64];
+            char *copy = strdup(command);
+            int i = 0;
+            char *token = strtok(copy, " ");
+            while (token != NULL && i < 63) {
+                args[i++] = token;
+                token = strtok(NULL, " ");
+            }
+            args[i] = NULL;
+
+            handle_type(args);
         }
         else
         {
