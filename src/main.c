@@ -4,25 +4,32 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+#define PATH_DELIMITER ";"
+#else
+#define PATH_DELIMITER ":"
+#endif
+
 int handle_type(char *args[])
 {
-    if (args[1] == NULL) {
+    if (args[1] == NULL)
+    {
         return 0;
     }
     char *cmd = args[1];
     char *builtins[] = {"cd", "exit", "echo", "type"};
-    
-    int a = ((char*)(&builtins + 1) - (char*)(&builtins)); 
-    int b = (char*)(builtins + 1) - (char*)builtins;
 
-    int num_builtins = a/b;
+    int a = ((char *)(&builtins + 1) - (char *)(&builtins));
+    int b = (char *)(builtins + 1) - (char *)builtins;
+
+    int num_builtins = a / b;
     // check builtins first
     for (int i = 0; i < num_builtins; i++)
     {
         if (strcmp(cmd, builtins[i]) == 0)
         {
             printf("%s is a shell builtin\n", cmd);
-            return;
+            return 0;
         }
     }
 
@@ -31,11 +38,11 @@ int handle_type(char *args[])
     if (path_env == NULL)
     {
         printf("%s: not found\n", cmd);
-        return;
+        return 0;
     }
 
     char *path_copy = strdup(path_env);
-    char *dir = strtok(path_copy, ":");
+    char *dir = strtok(path_copy, PATH_DELIMITER);
 
     while (dir != NULL)
     {
@@ -46,14 +53,15 @@ int handle_type(char *args[])
         {
             printf("%s is %s\n", cmd, full_path);
             free(path_copy);
-            return;
+            return 0;
         }
 
-        dir = strtok(NULL, ":");
+        dir = strtok(NULL, PATH_DELIMITER);
     }
 
     printf("%s: not found\n", cmd);
     free(path_copy);
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -106,7 +114,8 @@ int main(int argc, char *argv[])
             char *copy = strdup(command);
             int i = 0;
             char *token = strtok(copy, " ");
-            while (token != NULL && i < 63) {
+            while (token != NULL && i < 63)
+            {
                 args[i++] = token;
                 token = strtok(NULL, " ");
             }
