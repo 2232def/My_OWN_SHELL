@@ -2,13 +2,8 @@
 # Build directory (CMake)
 # ========================
 build/
+build-linux/
 
-# ========================
-# Compiled binaries
-# ========================
-*.exe
-*.out
-*.o
 *.obj
 *.dll
 *.so
