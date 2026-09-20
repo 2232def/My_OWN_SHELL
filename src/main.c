@@ -66,7 +66,7 @@ int handle_type(char *args[])
         return 0;
     }
     char *cmd = args[1];
-    char *builtins[] = {"cd", "exit", "echo", "type"};
+    char *builtins[] = {"cd", "exit", "echo", "type", "pwd"};
     int num_builtins = (int)(sizeof(builtins) / sizeof(builtins[0]));
 
     // check builtins first
@@ -150,6 +150,14 @@ int main(int argc, char *argv[])
         else if (strcmp(args[0], "type") == 0)
         {
             handle_type(args);
+        }
+        else if (strcmp(args[0], "pwd") == 0)
+        {
+            char cwd[1024];
+            if (getcwd(cwd, sizeof(cwd)) != NULL)
+            {
+                printf("%s\n", cwd);
+            }
         }
         else
         {
