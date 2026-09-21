@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <unistd.h>
 
+
 #ifdef _WIN32
 #include <process.h>
 #define PATH_DELIMITER ";"
@@ -158,6 +159,20 @@ int main(int argc, char *argv[])
             {
                 printf("%s\n", cwd);
             }
+        }
+        else if(strcmp(args[0], "cd") == 0){
+            if (args[1] == NULL)
+            {
+                fprintf(stderr, "cd: missing argument\n");
+                continue;
+            } 
+            else if (strcmp(args[1], "~") == 0){
+                char *home = getenv("HOME");
+                if (home != NULL){
+                    chdir(home);
+                }
+            }
+            chdir(args[1]);
         }
         else
         {
