@@ -103,28 +103,27 @@ int main(int argc, char *argv[]) {
     char *dst = command; // write pointer — writes only characters we keep
 
     while (*src != '\0' && arg_count < 63) {
-      // 1. Skip leading whitespace
       while (*src == ' ' || *src == '\t')
         src++;
 
       if (*src == '\0')
         break;
 
-      // 2. Mark the start of this argument at dst
       args[arg_count++] = dst;
 
-      // 3. Accumulate characters until unquoted whitespace or end of line
       while (*src != '\0' && *src != ' ' && *src != '\t') {
         if (*src == '\'' || *src == '\"') {
-          char quote = *src; // remember which quote we opened
-          src++; // skip opening quote (dst stays — quote is stripped)
+          char quote = *src;
+          src++;
 
-          // Copy everything inside the quotes
           while (*src != '\0' && *src != quote) {
+            if (quote == '\"' && *src == '\\') {
+              src++;
+            }
             *dst++ = *src++;
           }
           if (*src == quote)
-            src++; // skip closing quote (dst stays — quote is stripped)
+            src++;
         } else if (*src == '\\') {
           src++;
           if (*src != '\0') {
@@ -132,18 +131,13 @@ int main(int argc, char *argv[]) {
           }
         } else {
 
-          // Regular unquoted character — copy it
           *dst++ = *src++;
         }
       }
 
-      // 4. Advance src past the delimiter BEFORE writing \0
-      //    (dst might point to the same spot as src — writing \0 first
-      //     would destroy the space that src still needs to read past)
       if (*src != '\0')
         src++;
 
-      // 5. Null-terminate this argument
       *dst++ = '\0';
     }
     args[arg_count] = NULL;

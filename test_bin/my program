@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "my program executed with: $@"

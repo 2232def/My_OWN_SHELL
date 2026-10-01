@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "exe with spaces executed with: $@"
