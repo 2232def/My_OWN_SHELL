@@ -148,36 +148,79 @@ int main(int argc, char *argv[]) {
     }
 
     char *output_file = NULL;
+    char *error_file = NULL;
     int redirect_stdout = 0;
+    int redirect_stderr = 0;
 
     for (int i = 0; args[i] != NULL; i++) {
       if (strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0) {
         if (args[i + 1] != NULL) {
           output_file = args[i + 1];
           redirect_stdout = 1;
-          for (int j = i; args[j] != NULL; j++) {
+          int j = i;
+          while (args[j + 2] != NULL) {
             args[j] = args[j + 2];
+            j++;
           }
+          args[j] = NULL;
+          args[j + 1] = NULL;
           i--;
+          continue;
         }
       } else if (args[i][0] == '1' && args[i][1] == '>' && args[i][2] != '\0') {
         output_file = &args[i][2];
         redirect_stdout = 1;
-        for (int j = i; args[j] != NULL; j++) {
+        int j = i;
+        while (args[j + 1] != NULL) {
           args[j] = args[j + 1];
+          j++;
         }
+        args[j] = NULL;
         i--;
+        continue;
       } else if (args[i][0] == '>' && args[i][1] != '\0') {
         output_file = &args[i][1];
         redirect_stdout = 1;
-        for (int j = i; args[j] != NULL; j++) {
+        int j = i;
+        while (args[j + 1] != NULL) {
           args[j] = args[j + 1];
+          j++;
         }
+        args[j] = NULL;
         i--;
+        continue;
+      }
+
+      if (strcmp(args[i], "2>") == 0) {
+        if (args[i + 1] != NULL) {
+          error_file = args[i + 1];
+          redirect_stderr = 1;
+          int j = i;
+          while (args[j + 2] != NULL) {
+            args[j] = args[j + 2];
+            j++;
+          }
+          args[j] = NULL;
+          args[j + 1] = NULL;
+          i--;
+          continue;
+        }
+      } else if (args[i][0] == '2' && args[i][1] == '>' && args[i][2] != '\0') {
+        error_file = &args[i][2];
+        redirect_stderr = 1;
+        int j = i;
+        while (args[j + 1] != NULL) {
+          args[j] = args[j + 1];
+          j++;
+        }
+        args[j] = NULL;
+        i--;
+        continue;
       }
     }
 
     int saved_stdout = -1;
+    int saved_stderr = -1;
     if (redirect_stdout && output_file != NULL) {
       int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
       if (fd >= 0) {
@@ -187,11 +230,25 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    if (redirect_stderr && error_file != NULL) {
+      int fd = open(error_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+      if (fd >= 0) {
+        saved_stderr = dup(STDERR_FILENO);
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+      }
+    }
+
     if (args[0] == NULL) {
       if (saved_stdout != -1) {
         fflush(stdout);
         dup2(saved_stdout, STDOUT_FILENO);
         close(saved_stdout);
+      }
+      if (saved_stderr != -1) {
+        fflush(stderr);
+        dup2(saved_stderr, STDERR_FILENO);
+        close(saved_stderr);
       }
       continue;
     }
@@ -203,6 +260,9 @@ int main(int argc, char *argv[]) {
       }
       if (saved_stdout != -1) {
         close(saved_stdout);
+      }
+      if (saved_stderr != -1) {
+        close(saved_stderr);
       }
       exit(exit_code);
     } else if (strcmp(args[0], "echo") == 0) {
@@ -259,6 +319,11 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
       dup2(saved_stdout, STDOUT_FILENO);
       close(saved_stdout);
+    }
+    if (saved_stderr != -1) {
+      fflush(stderr);
+      dup2(saved_stderr, STDERR_FILENO);
+      close(saved_stderr);
     }
   }
 
