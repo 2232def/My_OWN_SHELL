@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,10 +147,62 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
+    char *output_file = NULL;
+    int redirect_stdout = 0;
+
+    for (int i = 0; args[i] != NULL; i++) {
+      if (strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0) {
+        if (args[i + 1] != NULL) {
+          output_file = args[i + 1];
+          redirect_stdout = 1;
+          for (int j = i; args[j] != NULL; j++) {
+            args[j] = args[j + 2];
+          }
+          i--;
+        }
+      } else if (args[i][0] == '1' && args[i][1] == '>' && args[i][2] != '\0') {
+        output_file = &args[i][2];
+        redirect_stdout = 1;
+        for (int j = i; args[j] != NULL; j++) {
+          args[j] = args[j + 1];
+        }
+        i--;
+      } else if (args[i][0] == '>' && args[i][1] != '\0') {
+        output_file = &args[i][1];
+        redirect_stdout = 1;
+        for (int j = i; args[j] != NULL; j++) {
+          args[j] = args[j + 1];
+        }
+        i--;
+      }
+    }
+
+    int saved_stdout = -1;
+    if (redirect_stdout && output_file != NULL) {
+      int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+      if (fd >= 0) {
+        saved_stdout = dup(STDOUT_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+      }
+    }
+
+    if (args[0] == NULL) {
+      if (saved_stdout != -1) {
+        fflush(stdout);
+        dup2(saved_stdout, STDOUT_FILENO);
+        close(saved_stdout);
+      }
+      continue;
+    }
+
     if (strcmp(args[0], "exit") == 0) {
       int exit_code = 0;
       if (args[1] != NULL) {
         exit_code = atoi(args[1]);
+      }
+      if (saved_stdout != -1) {
+        close(saved_stdout);
       }
       exit(exit_code);
     } else if (strcmp(args[0], "echo") == 0) {
@@ -170,14 +223,14 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(args[0], "cd") == 0) {
       if (args[1] == NULL) {
         fprintf(stderr, "cd: missing argument\n");
-        continue;
       } else if (strcmp(args[1], "~") == 0) {
         char *home = getenv("HOME");
         if (home != NULL) {
           chdir(home);
         }
+      } else {
+        chdir(args[1]);
       }
-      chdir(args[1]);
     } else {
       char *exec_path = get_path(args[0]);
       if (exec_path != NULL) {
@@ -200,6 +253,12 @@ int main(int argc, char *argv[]) {
       } else {
         printf("%s: command not found\n", args[0]);
       }
+    }
+
+    if (saved_stdout != -1) {
+      fflush(stdout);
+      dup2(saved_stdout, STDOUT_FILENO);
+      close(saved_stdout);
     }
   }
 
