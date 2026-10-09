@@ -152,11 +152,30 @@ int main(int argc, char *argv[]) {
     int redirect_stdout = 0;
     int redirect_stderr = 0;
 
+    int append_stdout = 0;
+    int append_stderr = 0;
+
     for (int i = 0; args[i] != NULL; i++) {
-      if (strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0) {
+      if (strcmp(args[i], ">>") == 0 || strcmp(args[i], "1>>") == 0) {
+        if (args[i + 1] != NULL) {
+          output_file = args[i + 1];
+          append_stdout = 1;
+          redirect_stdout = 1;
+          int j = i;
+          while (args[j + 2] != NULL) {
+            args[j] = args[j + 2];
+            j++;
+          }
+          args[j] = NULL;
+          args[j + 1] = NULL;
+          i--;
+          continue;
+        }
+      } else if (strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0) {
         if (args[i + 1] != NULL) {
           output_file = args[i + 1];
           redirect_stdout = 1;
+          append_stdout = 0;
           int j = i;
           while (args[j + 2] != NULL) {
             args[j] = args[j + 2];
@@ -170,6 +189,7 @@ int main(int argc, char *argv[]) {
       } else if (args[i][0] == '1' && args[i][1] == '>' && args[i][2] != '\0') {
         output_file = &args[i][2];
         redirect_stdout = 1;
+        append_stdout = 0;
         int j = i;
         while (args[j + 1] != NULL) {
           args[j] = args[j + 1];
@@ -181,6 +201,7 @@ int main(int argc, char *argv[]) {
       } else if (args[i][0] == '>' && args[i][1] != '\0') {
         output_file = &args[i][1];
         redirect_stdout = 1;
+        append_stdout = 0;
         int j = i;
         while (args[j + 1] != NULL) {
           args[j] = args[j + 1];
@@ -191,10 +212,11 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
-      if (strcmp(args[i], "2>") == 0) {
+      if (strcmp(args[i], "2>>") == 0) {
         if (args[i + 1] != NULL) {
           error_file = args[i + 1];
           redirect_stderr = 1;
+          append_stderr = 1;
           int j = i;
           while (args[j + 2] != NULL) {
             args[j] = args[j + 2];
@@ -205,41 +227,149 @@ int main(int argc, char *argv[]) {
           i--;
           continue;
         }
-      } else if (args[i][0] == '2' && args[i][1] == '>' && args[i][2] != '\0') {
-        error_file = &args[i][2];
-        redirect_stderr = 1;
-        int j = i;
-        while (args[j + 1] != NULL) {
-          args[j] = args[j + 1];
-          j++;
+
+        if (strcmp(args[i], "2>") == 0) {
+          if (args[i + 1] != NULL) {
+            error_file = args[i + 1];
+            redirect_stderr = 1;
+            append_stderr = 0;
+            int j = i;
+            while (args[j + 2] != NULL) {
+              args[j] = args[j + 2];
+              j++;
+            }
+            args[j] = NULL;
+            args[j + 1] = NULL;
+            i--;
+            continue;
+          }
+        } else if (args[i][0] == '2' && args[i][1] == '>' &&
+                   args[i][2] != '\0') {
+          error_file = &args[i][2];
+          redirect_stderr = 1;
+          append_stderr = 0;
+          int j = i;
+          while (args[j + 1] != NULL) {
+            args[j] = args[j + 1];
+            j++;
+          }
+          args[j] = NULL;
+          i--;
+          continue;
         }
-        args[j] = NULL;
-        i--;
+      }
+
+      int saved_stdout = -1;
+      int saved_stderr = -1;
+      if (redirect_stdout && output_file != NULL && append_stdout == 1) {
+        int fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (fd >= 0) {
+          saved_stdout = dup(STDOUT_FILENO);
+          dup2(fd, STDOUT_FILENO);
+          close(fd);
+        }
+      } else if (redirect_stdout && output_file != NULL && append_stdout == 0) {
+        int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd >= 0) {
+          saved_stdout = dup(STDOUT_FILENO);
+          dup2(fd, STDOUT_FILENO);
+          close(fd);
+        }
+      }
+
+      if (redirect_stderr && error_file != NULL && append_stderr == 1) {
+        int fd = open(error_file, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if (fd >= 0) {
+          saved_stderr = dup(STDERR_FILENO);
+          dup2(fd, STDERR_FILENO);
+          close(fd);
+        }
+
+      } else if (redirect_stderr && error_file != NULL && append_stderr == 0) {
+        int fd = open(error_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd >= 0) {
+          saved_stderr = dup(STDERR_FILENO);
+          dup2(fd, STDERR_FILENO);
+          close(fd);
+        }
+      }
+
+      if (args[0] == NULL) {
+        if (saved_stdout != -1) {
+          fflush(stdout);
+          dup2(saved_stdout, STDOUT_FILENO);
+          close(saved_stdout);
+        }
+        if (saved_stderr != -1) {
+          fflush(stderr);
+          dup2(saved_stderr, STDERR_FILENO);
+          close(saved_stderr);
+        }
         continue;
       }
-    }
 
-    int saved_stdout = -1;
-    int saved_stderr = -1;
-    if (redirect_stdout && output_file != NULL) {
-      int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-      if (fd >= 0) {
-        saved_stdout = dup(STDOUT_FILENO);
-        dup2(fd, STDOUT_FILENO);
-        close(fd);
+      if (strcmp(args[0], "exit") == 0) {
+        int exit_code = 0;
+        if (args[1] != NULL) {
+          exit_code = atoi(args[1]);
+        }
+        if (saved_stdout != -1) {
+          close(saved_stdout);
+        }
+        if (saved_stderr != -1) {
+          close(saved_stderr);
+        }
+        exit(exit_code);
+      } else if (strcmp(args[0], "echo") == 0) {
+        for (int i = 1; args[i] != NULL; i++) {
+          if (i > 1) {
+            putchar(' ');
+          }
+          fputs(args[i], stdout);
+        }
+        putchar('\n');
+      } else if (strcmp(args[0], "type") == 0) {
+        handle_type(args);
+      } else if (strcmp(args[0], "pwd") == 0) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+          printf("%s\n", cwd);
+        }
+      } else if (strcmp(args[0], "cd") == 0) {
+        if (args[1] == NULL) {
+          fprintf(stderr, "cd: missing argument\n");
+        } else if (strcmp(args[1], "~") == 0) {
+          char *home = getenv("HOME");
+          if (home != NULL) {
+            chdir(home);
+          }
+        } else {
+          chdir(args[1]);
+        }
+      } else {
+        char *exec_path = get_path(args[0]);
+        if (exec_path != NULL) {
+#ifdef _WIN32
+          _spawnv(_P_WAIT, exec_path, (const char *const *)args);
+#else
+          pid_t pid = fork();
+          if (pid == 0) {
+            execv(exec_path, args);
+            perror("execv");
+            exit(EXIT_FAILURE);
+          } else if (pid > 0) {
+            int status;
+            waitpid(pid, &status, 0);
+          } else {
+            perror("fork");
+          }
+#endif
+          free(exec_path);
+        } else {
+          printf("%s: command not found\n", args[0]);
+        }
       }
-    }
 
-    if (redirect_stderr && error_file != NULL) {
-      int fd = open(error_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-      if (fd >= 0) {
-        saved_stderr = dup(STDERR_FILENO);
-        dup2(fd, STDERR_FILENO);
-        close(fd);
-      }
-    }
-
-    if (args[0] == NULL) {
       if (saved_stdout != -1) {
         fflush(stdout);
         dup2(saved_stdout, STDOUT_FILENO);
@@ -250,82 +380,8 @@ int main(int argc, char *argv[]) {
         dup2(saved_stderr, STDERR_FILENO);
         close(saved_stderr);
       }
-      continue;
     }
 
-    if (strcmp(args[0], "exit") == 0) {
-      int exit_code = 0;
-      if (args[1] != NULL) {
-        exit_code = atoi(args[1]);
-      }
-      if (saved_stdout != -1) {
-        close(saved_stdout);
-      }
-      if (saved_stderr != -1) {
-        close(saved_stderr);
-      }
-      exit(exit_code);
-    } else if (strcmp(args[0], "echo") == 0) {
-      for (int i = 1; args[i] != NULL; i++) {
-        if (i > 1) {
-          putchar(' ');
-        }
-        fputs(args[i], stdout);
-      }
-      putchar('\n');
-    } else if (strcmp(args[0], "type") == 0) {
-      handle_type(args);
-    } else if (strcmp(args[0], "pwd") == 0) {
-      char cwd[1024];
-      if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        printf("%s\n", cwd);
-      }
-    } else if (strcmp(args[0], "cd") == 0) {
-      if (args[1] == NULL) {
-        fprintf(stderr, "cd: missing argument\n");
-      } else if (strcmp(args[1], "~") == 0) {
-        char *home = getenv("HOME");
-        if (home != NULL) {
-          chdir(home);
-        }
-      } else {
-        chdir(args[1]);
-      }
-    } else {
-      char *exec_path = get_path(args[0]);
-      if (exec_path != NULL) {
-#ifdef _WIN32
-        _spawnv(_P_WAIT, exec_path, (const char *const *)args);
-#else
-        pid_t pid = fork();
-        if (pid == 0) {
-          execv(exec_path, args);
-          perror("execv");
-          exit(EXIT_FAILURE);
-        } else if (pid > 0) {
-          int status;
-          waitpid(pid, &status, 0);
-        } else {
-          perror("fork");
-        }
-#endif
-        free(exec_path);
-      } else {
-        printf("%s: command not found\n", args[0]);
-      }
-    }
-
-    if (saved_stdout != -1) {
-      fflush(stdout);
-      dup2(saved_stdout, STDOUT_FILENO);
-      close(saved_stdout);
-    }
-    if (saved_stderr != -1) {
-      fflush(stderr);
-      dup2(saved_stderr, STDERR_FILENO);
-      close(saved_stderr);
-    }
+    return 0;
   }
-
-  return 0;
 }
